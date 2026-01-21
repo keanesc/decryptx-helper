@@ -7,7 +7,7 @@ from typing import Optional
 
 # Default configuration
 _config = {
-    "api_base_url": "https://decryptx.convex.site",
+    "api_base_url": "https://unique-manatee-458.convex.site",
     "timeout": 30,
 }
 
