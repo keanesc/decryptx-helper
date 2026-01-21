@@ -66,29 +66,22 @@ def _sign_submission(
     return signature
 
 
-def _get_team_secret(team_id: str) -> str:
+def _get_team_secret(session: Session) -> str:
     """
     Get the team-specific secret for signing.
 
-    This is derived from the master secret on the server side.
-    For the client, we need to compute signatures that the server can verify.
-
-    The secret derivation happens server-side:
+    The secret is provided by the server during login and is derived from:
     team_secret = HMAC-SHA256(master_secret, team_id)
 
-    Since we can't access the master secret from the client, we need
-    to rely on the server to provide or verify the signature.
-
-    For this implementation, we use a placeholder approach where the
-    signature is computed with a known method that the server expects.
+    This ensures that only the server can generate valid secrets, and
+    each team has a unique signing key.
     """
-    # Note: In a real implementation, this would need to be more sophisticated.
-    # The current approach relies on server-side validation with the actual secret.
-    # For the contest, we embed a derivation method that matches the server.
-
-    # This is intentionally simple - security is in the server's HMAC verification
-    # using the actual master secret, not in client-side secret protection.
-    return f"decryptx_round3_{team_id}_v1"
+    team_secret = session.get("teamSecret")
+    if not team_secret:
+        raise SubmissionError(
+            "Team secret not found in session. Please login again."
+        )
+    return team_secret
 
 
 def submit(
@@ -155,7 +148,7 @@ def submit(
     session_id = session["sessionId"]
 
     # Compute HMAC signature
-    team_secret = _get_team_secret(team_id)
+    team_secret = _get_team_secret(session)
     signature = _sign_submission(team_id, run_id, score, timestamp, team_secret)
 
     # Get metadata hash

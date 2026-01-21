@@ -18,6 +18,7 @@ class Session(TypedDict):
     qualified: bool
     round3Status: str
     remainingAttempts: int
+    teamSecret: str
 
 
 class LoginError(Exception):
@@ -99,6 +100,7 @@ def login(team_name: str, password: str) -> Session:
             "qualified": data.get("qualified", False),
             "round3Status": data.get("round3Status", "unknown"),
             "remainingAttempts": data.get("remainingAttempts", 0),
+            "teamSecret": data.get("teamSecret", ""),
         }
 
         # Print status info
