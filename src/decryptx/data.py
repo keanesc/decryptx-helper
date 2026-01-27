@@ -3,6 +3,7 @@ Data loading and splitting module for DecryptX Round 3.
 """
 
 import os
+import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -10,58 +11,159 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
 # Fixed parameters for fairness
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
 TARGET_COLUMN = "OVA"
 
+# Cache directory
+CACHE_DIR = Path.home() / ".cache" / "decryptx"
+CACHE_FILE = CACHE_DIR / "fifa_raw_data.csv"
+
+# Cache validity duration (24 hours)
+CACHE_MAX_AGE_SECONDS = 24 * 60 * 60
+
+
+def _download_dataset(url: str, dest: Path) -> None:
+    """
+    Download dataset from URL with progress bar.
+
+    Args:
+        url: URL to download from.
+        dest: Destination file path.
+
+    Raises:
+        Exception: If download fails.
+    """
+    import urllib.request
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"📥 Downloading dataset from: {url}")
+
+    try:
+        if tqdm is not None:
+            # Download with progress bar
+            with tqdm(
+                unit="B", unit_scale=True, unit_divisor=1024, miniters=1
+            ) as pbar:
+
+                def update_progress(block_num, block_size, total_size):
+                    if pbar.total is None and total_size > 0:
+                        pbar.total = total_size
+                    pbar.update(block_size)
+
+                urllib.request.urlretrieve(url, dest, reporthook=update_progress)
+        else:
+            # Download without progress bar
+            urllib.request.urlretrieve(url, dest)
+
+        print(f"✅ Dataset downloaded successfully to: {dest}")
+
+    except Exception as e:
+        # Clean up partial download
+        if dest.exists():
+            dest.unlink()
+        raise Exception(
+            f"Failed to download dataset from {url}.\n"
+            f"Error: {e}\n"
+            f"Please check your internet connection or try setting DECRYPTX_DATA_PATH "
+            f"to a local file path."
+        ) from e
+
+
+def _is_cache_valid(cache_file: Path) -> bool:
+    """
+    Check if cached file is still valid (exists and not too old).
+
+    Args:
+        cache_file: Path to cached file.
+
+    Returns:
+        True if cache is valid, False otherwise.
+    """
+    if not cache_file.exists():
+        return False
+
+    # Check file age
+    file_age = time.time() - cache_file.stat().st_mtime
+    return file_age < CACHE_MAX_AGE_SECONDS
+
 
 def _find_data_file() -> Path:
     """
-    Find the FIFA21 dataset file.
+    Find the FIFA dataset file.
 
     Searches in multiple locations:
-    1. Package data directory
-    2. Current working directory
-    3. Common data directories
+    1. DECRYPTX_DATA_PATH environment variable (if set)
+    2. Package data directory
+    3. Current working directory
+    4. Common data directories (Colab)
+    5. Downloads from Convex API dataset URL to cache
 
     Returns:
         Path to the data file.
 
     Raises:
-        FileNotFoundError: If the data file cannot be found.
+        FileNotFoundError: If the data file cannot be found or downloaded.
     """
-    # Possible locations
+    # Possible local locations
     search_paths = [
         # Package data directory
-        Path(__file__).parent.parent.parent.parent / "data" / "fifa21 _raw_data.csv",
+        Path(__file__).parent.parent.parent.parent / "data" / "fifa_raw_data.csv",
         # Current directory
-        Path.cwd() / "data" / "fifa21 _raw_data.csv",
-        Path.cwd() / "fifa21 _raw_data.csv",
+        Path.cwd() / "data" / "fifa_raw_data.csv",
+        Path.cwd() / "fifa_raw_data.csv",
         # Common notebook locations (Colab)
-        Path("/content/data/fifa21 _raw_data.csv"),
-        Path("/content/fifa21 _raw_data.csv"),
+        Path("/content/data/fifa_raw_data.csv"),
+        Path("/content/fifa_raw_data.csv"),
     ]
 
-    # Also check environment variable
+    # Check environment variable for explicit path
     env_path = os.environ.get("DECRYPTX_DATA_PATH")
     if env_path:
         search_paths.insert(0, Path(env_path))
 
+    # Check local paths first
     for path in search_paths:
         if path.exists():
             return path
 
-    raise FileNotFoundError(
-        "FIFA21 dataset not found. Please ensure the data file is available.\n"
-        "You can set the DECRYPTX_DATA_PATH environment variable to specify the location.\n"
-        f"Searched in: {[str(p) for p in search_paths]}"
-    )
+    # If not found locally, try to download from URL
+    from .config import get_dataset_url
+
+    dataset_url = get_dataset_url()
+
+    # Check if cache is valid
+    if _is_cache_valid(CACHE_FILE):
+        print(f"📦 Using cached dataset from: {CACHE_FILE}")
+        return CACHE_FILE
+
+    # Download to cache
+    try:
+        _download_dataset(dataset_url, CACHE_FILE)
+        return CACHE_FILE
+    except Exception as e:
+        raise FileNotFoundError(
+            f"FIFA dataset not found locally and download failed.\n\n"
+            f"Attempted to download from: {dataset_url}\n"
+            f"Error: {e}\n\n"
+            f"Options to resolve:\n"
+            f"1. Check your internet connection and try again\n"
+            f"2. Set DECRYPTX_DATA_PATH environment variable to a local file:\n"
+            f"   export DECRYPTX_DATA_PATH=/path/to/fifa_raw_data.csv\n\n"
+            f"Local paths searched: {[str(p) for p in search_paths]}"
+        ) from e
 
 
 def load_data(filepath: Optional[str] = None) -> pd.DataFrame:
     """
-    Load the raw FIFA21 dataset for cleaning.
+    Load the raw FIFA dataset for cleaning.
 
     This function loads the dataset that needs to be cleaned as part of the
     competition. The data contains various quality issues that you need to
@@ -72,7 +174,7 @@ def load_data(filepath: Optional[str] = None) -> pd.DataFrame:
                  will search in common locations.
 
     Returns:
-        pandas DataFrame with the raw FIFA21 player data.
+        pandas DataFrame with the raw FIFA player data.
 
     Example:
         >>> from decryptx import load_data

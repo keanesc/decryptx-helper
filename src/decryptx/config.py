@@ -67,3 +67,32 @@ def _get_api_url(endpoint: str) -> str:
 def _get_timeout() -> int:
     """Get the configured timeout value."""
     return _config["timeout"]
+
+
+def get_dataset_url() -> str:
+    """
+    Get the dataset URL from the Convex API.
+
+    Returns:
+        Dataset URL string.
+
+    Raises:
+        Exception: If unable to fetch the dataset URL from the API.
+    """
+    import json
+    import urllib.request
+
+    try:
+        api_url = _get_api_url("/api/round3/dataset-url")
+        with urllib.request.urlopen(api_url, timeout=_get_timeout()) as response:
+            data = json.loads(response.read().decode())
+            return data.get(
+                "datasetUrl", "https://www.dataai.club/dataset/fifa_raw_data.csv"
+            )
+    except Exception as e:
+        # Fallback to default URL if API is unavailable
+        print(f"⚠️  Unable to fetch dataset URL from API: {e}")
+        print(
+            "📌 Using fallback URL: https://www.dataai.club/dataset/fifa_raw_data.csv"
+        )
+        return "https://www.dataai.club/dataset/fifa_raw_data.csv"

@@ -18,6 +18,25 @@ cd decryptx-helper
 pip install -e .
 ```
 
+## Dataset Access
+
+The library automatically downloads the FIFA dataset from the DecryptX server when you call `load_data()`. The dataset is cached locally in `~/.cache/decryptx/` and refreshed every 24 hours.
+
+### Environment Variables (Optional)
+
+You can customize the dataset location using an environment variable:
+
+- **`DECRYPTX_DATA_PATH`**: Direct path to a local dataset file (bypasses download)
+
+**Example:**
+
+```bash
+# Use a local file (no download)
+export DECRYPTX_DATA_PATH="/path/to/your/fifa_raw_data.csv"
+```
+
+**Google Colab Note:** The dataset will be automatically downloaded on first use. No manual upload required!
+
 ## Quick Start
 
 ```python
@@ -26,7 +45,7 @@ from decryptx import login, load_data, get_train_test_split, evaluate, submit
 # 1. Login with your team credentials
 session = login(team_name="YourTeamName", password="your_password")
 
-# 2. Load the raw FIFA21 dataset
+# 2. Load the raw FIFA dataset
 df = load_data()
 
 # 3. Clean your data (YOUR WORK GOES HERE)
@@ -58,7 +77,7 @@ Authenticate with the DecryptX server.
 
 ### `load_data() -> pd.DataFrame`
 
-Load the raw FIFA21 dataset that needs cleaning.
+Load the raw FIFA dataset that needs cleaning.
 
 **Returns:** pandas DataFrame with the raw data.
 
