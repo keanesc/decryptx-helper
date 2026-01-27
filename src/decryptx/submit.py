@@ -9,10 +9,14 @@ import hmac
 import time
 from typing import Optional, TypedDict
 
+import pandas as pd
 import requests
+from sklearn.ensemble import RandomForestRegressor
 
 from decryptx.auth import Session
 from decryptx.config import _get_api_url, _get_timeout
+from decryptx.data import _get_train_test_split
+from decryptx.evaluate import evaluate
 
 
 class SubmissionResult(TypedDict):
@@ -84,46 +88,14 @@ def _get_team_secret(session: Session) -> str:
     return team_secret
 
 
-def submit(
+def _api_submit(
     session: Session,
     score: float,
     run_id: str,
     metadata: Optional[dict] = None,
 ) -> SubmissionResult:
     """
-    Submit your score to the DecryptX leaderboard.
-
-    This function securely submits your evaluation score to the server.
-    The submission is signed with HMAC to prevent tampering.
-
-    Args:
-        session: Session dictionary from login().
-        score: Your RMSE score from evaluate().
-        run_id: The run ID from evaluate().
-        metadata: Optional metadata dictionary from evaluate().
-
-    Returns:
-        SubmissionResult dictionary containing:
-        - success: Whether submission was accepted
-        - message: Status message
-        - submissionId: Unique ID for this submission
-        - remainingAttempts: Number of attempts left (out of 5)
-
-    Raises:
-        SubmissionError: If submission fails.
-        CooldownError: If you need to wait before submitting again.
-        QuotaExceededError: If you've used all 5 submission attempts.
-
-    Example:
-        >>> from decryptx import login, evaluate, submit
-        >>> session = login("MyTeam", "password")
-        >>> score, run_id, metadata = evaluate(model, X_test, y_test)
-        >>> result = submit(session, score, run_id, metadata)
-        >>> print(f"Remaining attempts: {result['remainingAttempts']}/5")
-
-    Limits:
-        - Maximum 5 submissions total (lifetime)
-        - 1 minute cooldown between submissions
+    Internal function to submit score to the leaderboard.
     """
     # Validate session
     if not session or not session.get("sessionId"):
@@ -247,6 +219,42 @@ def submit(
 
     except requests.RequestException as e:
         raise SubmissionError(f"Network error: {e}") from e
+
+
+def submit(
+    session: Session,
+    df: pd.DataFrame,
+) -> SubmissionResult:
+    """
+    Submit your cleaned dataset to the DecryptX leaderboard.
+
+    This function securely trains a standard model on your cleaned data,
+    evaluates it, and submits the score to the server.
+
+    Args:
+        session: Session dictionary from login().
+        df: Your cleaned DataFrame.
+
+    Returns:
+        SubmissionResult dictionary.
+    """
+    print("🔄 Processing submission...")
+
+    # 1. Split data (internal fixed split)
+    print("   Splitting data...")
+    X_train, X_test, y_train, y_test = _get_train_test_split(df)
+
+    # 2. Train fixed model
+    print("   Training standard model (RandomForestRegressor)...")
+    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    model.fit(X_train, y_train)
+
+    # 3. Evaluate
+    print("   Evaluating model...")
+    score, run_id, metadata = evaluate(model, X_test, y_test)
+
+    # 4. Submit
+    return _api_submit(session, score, run_id, metadata)
 
 
 def get_submission_status(session: Session) -> dict:

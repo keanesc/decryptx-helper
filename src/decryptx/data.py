@@ -222,13 +222,13 @@ def load_data(filepath: Optional[str] = None) -> pd.DataFrame:
     return df
 
 
-def get_train_test_split(
+def _get_train_test_split(
     df: pd.DataFrame,
     target_col: str = TARGET_COLUMN,
     feature_cols: Optional[List[str]] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
-    Split the cleaned data into training and test sets.
+    Internal function to split cleaned data into training and test sets.
 
     This function uses FIXED parameters to ensure fairness across all teams:
     - random_state=42 (fixed seed for reproducibility)

@@ -40,7 +40,7 @@ export DECRYPTX_DATA_PATH="/path/to/your/fifa_raw_data.csv"
 ## Quick Start
 
 ```python
-from decryptx import login, load_data, get_train_test_split, evaluate, submit
+from decryptx import login, load_data, submit
 
 # 1. Login with your team credentials
 session = login(team_name="YourTeamName", password="your_password")
@@ -51,19 +51,9 @@ df = load_data()
 # 3. Clean your data (YOUR WORK GOES HERE)
 df_clean = your_cleaning_function(df)
 
-# 4. Get train/test split (fixed seed for fairness)
-X_train, X_test, y_train, y_test = get_train_test_split(df_clean)
-
-# 5. Train your model
-model = YourModel()
-model.fit(X_train, y_train)
-
-# 6. Evaluate your model (computes RMSE)
-score, run_id = evaluate(model, X_test, y_test)
-print(f"Your RMSE score: {score:.4f} (lower is better)")
-
-# 7. Submit your score
-result = submit(session, score, run_id)
+# 4. Submit your cleaned dataset
+# This will automatically split data, train a fixed model, evaluate performance, and submit the score.
+result = submit(session, df_clean)
 print(f"Remaining attempts: {result['remainingAttempts']}/5")
 ```
 
@@ -81,23 +71,18 @@ Load the raw FIFA dataset that needs cleaning.
 
 **Returns:** pandas DataFrame with the raw data.
 
-### `get_train_test_split(df: pd.DataFrame, target_col: str = "OVA") -> tuple`
+### `submit(session: dict, df: pd.DataFrame) -> dict`
 
-Split your cleaned data into training and test sets using fixed parameters for fairness.
+Submit your cleaned dataset for evaluation.
 
-- `random_state=42` (fixed)
-- `test_size=0.2` (fixed)
-- Target column: `OVA` (Overall Rating)
+This function:
 
-**Returns:** `(X_train, X_test, y_train, y_test)`
+1. Splits your data into train/test sets (fixed random seed)
+2. Trains a standardized Random Forest model
+3. Evaluates RMSE on the test set
+4. Submits the score to the leaderboard
 
-### `evaluate(model, X_test, y_test) -> tuple[float, str]`
-
-Evaluate your trained model and compute the RMSE score.
-
-**Returns:** `(rmse_score, run_id)`
-
-### `submit(session: dict, score: float, run_id: str) -> dict`
+**Returns:** Submission result dictionary.
 
 Submit your score to the leaderboard.
 
