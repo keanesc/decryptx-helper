@@ -90,7 +90,7 @@ def login(team_name: str, password: str) -> Session:
         # Check qualification
         if not data.get("qualified"):
             print("⚠️  Warning: Your team is not qualified for Round 3.")
-            print("   Only the top 10 teams from Round 2 can participate.")
+            print("   Only the top 20 qualified teams can participate.")
 
         # Build session object
         session: Session = {

@@ -104,7 +104,7 @@ def _api_submit(
     if not session.get("qualified"):
         raise SubmissionError(
             "Your team is not qualified for Round 3. "
-            "Only top 10 teams from Round 2 can submit."
+            "Only top 20 qualified teams can submit."
         )
 
     # Check remaining attempts

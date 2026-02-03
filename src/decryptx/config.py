@@ -7,7 +7,7 @@ from typing import Optional
 
 # Default configuration
 _config = {
-    "api_base_url": "https://unique-manatee-458.convex.site",
+    "api_base_url": "https://combative-newt-773.convex.site",
     "timeout": 30,
 }
 
